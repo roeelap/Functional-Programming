@@ -128,31 +128,43 @@ countGen p (f, q, x)
 -- -- ********* --
 -- -- Section 4
 -- -- ********* --
+divides :: Integer -> Integer -> Bool
+y `divides` x  = x `mod` y == 0
+
 isPrime :: Integer -> Bool
 isPrime x
     | x < 2 = False
-    | even x = True
-    | otherwise = not (hasDivisor x 3)
-    where hasDivisor x y
-            | y * y > x = False
-            | x `mod` y == 0 = True
-            | otherwise = hasDivisor x (y + 1)
+    | otherwise = noneGen (`divides` x) ((+1), (<= x `div` 2), 2)
 
 isSemiprime :: Integer -> Bool
-isSemiprime x 
+isSemiprime x
     | x < 5 = False
-    | otherwise = isSemiprime' x 2
-    where isSemiprime' x y
-            | y * y > x = False
-            | x `mod` y == 0 && isPrime y && isPrime (x `div` y) = True
-            | otherwise = isSemiprime' x (y + 1)
+    | otherwise = anyGen (\y -> (y `divides` x) && isPrime y && isPrime (x `div` y)) ((+1), (<= x `div` 2), 2)
 
--- goldbachPair :: Integer -> (Integer, Integer)
--- goldbachPair' :: Integer -> (Integer, Integer)
+goldbachPair :: Integer -> (Integer, Integer)
+goldbachPair x = findGoldbachPair x 2
+    where findGoldbachPair x y
+            | isPrime y && isPrime (x - y) = (y, x - y)
+            | otherwise = findGoldbachPair x (y + 1)
+
+goldbachPair' :: Integer -> (Integer, Integer)
+goldbachPair' x = findGoldbachPairWithMaxProduct x 2 2
+    where findGoldbachPairWithMaxProduct x y maxY
+            | y > x - 2 = if maxY > x - maxY then (maxY, x - maxY) else (x - maxY, maxY)
+            | y * (x - y) < (maxY * (x - maxY)) = findGoldbachPairWithMaxProduct x (y + 1) maxY
+            | isPrime y && isPrime (x - y) = findGoldbachPairWithMaxProduct x (y + 1) y
+            | otherwise = findGoldbachPairWithMaxProduct x (y + 1) maxY
 
 -- ***** --
 -- Bonus
 -- ***** --
 isCircularPrime :: Integer -> Bool
 -- If you choose the implement this function, replace this with the actual implementation
-isCircularPrime = undefined
+isCircularPrime x = allGen isPrime' (rotateDigits', hasDone, (x, 1))
+    where
+        isPrime' (x, _) = isPrime x
+        rotateDigits' (x, n) = (rotateDigits x, n + 1)
+        hasDone (x, n) = n == countDigits x
+
+-- >>> isCircularPrime 103
+-- True
