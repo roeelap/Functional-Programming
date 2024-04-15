@@ -3,9 +3,9 @@
 --
 -- Tells HLS to show warnings, and the file won't be compiled if there are any warnings, e.g.,
 -- eval (-- >>>) won't work.
--- {-# OPTIONS_GHC -Wall -Werror #-}
+{-# OPTIONS_GHC -Wall -Werror #-}
 -- Refines the above, allowing for unused imports.
--- {-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module HW1 where
 
@@ -79,7 +79,7 @@ isAbundant x
     | x < 0 = False
     | otherwise = x < sumDivisors x (x `div` 2)
     where sumDivisors _ 0 = 0
-          sumDivisors x y = if x `mod` y == 0 then y + sumDivisors x (y - 1) else sumDivisors x (y - 1)
+          sumDivisors z y = if z `mod` y == 0 then y + sumDivisors z (y - 1) else sumDivisors z (y - 1)
 
 rotateDigits :: Integer -> Integer
 rotateDigits x
@@ -87,8 +87,8 @@ rotateDigits x
     | x < 0 = (-1) * rotateRight (-x)
     | otherwise = rotateLeft x
     where
-        rotateRight x = (x `mod` 10) * (10 `power` (countDigits x - 1)) + x `div` 10
-        rotateLeft x = x `div` (10 `power` (countDigits x - 1)) + (x `mod` (10 `power` (countDigits x - 1))) * 10
+        rotateRight n = (n `mod` 10) * (10 `power` (countDigits n - 1)) + n `div` 10
+        rotateLeft n = n `div` (10 `power` (countDigits n - 1)) + (n `mod` (10 `power` (countDigits n - 1))) * 10
 
 power :: Integer -> Integer -> Integer
 power x y = if y == 0 then 1 else x * power x (y - 1)
@@ -143,17 +143,17 @@ isSemiprime x
 
 goldbachPair :: Integer -> (Integer, Integer)
 goldbachPair x = findGoldbachPair x 2
-    where findGoldbachPair x y
-            | isPrime y && isPrime (x - y) = (y, x - y)
-            | otherwise = findGoldbachPair x (y + 1)
+    where findGoldbachPair z y
+            | isPrime y && isPrime (z - y) = (y, z - y)
+            | otherwise = findGoldbachPair z (y + 1)
 
 goldbachPair' :: Integer -> (Integer, Integer)
 goldbachPair' x = findGoldbachPairWithMaxProduct x 2 2
-    where findGoldbachPairWithMaxProduct x y maxY
-            | y > x - 2 = if maxY > x - maxY then (maxY, x - maxY) else (x - maxY, maxY)
-            | y * (x - y) < (maxY * (x - maxY)) = findGoldbachPairWithMaxProduct x (y + 1) maxY
-            | isPrime y && isPrime (x - y) = findGoldbachPairWithMaxProduct x (y + 1) y
-            | otherwise = findGoldbachPairWithMaxProduct x (y + 1) maxY
+    where findGoldbachPairWithMaxProduct z y maxY
+            | y > z - 2 = if maxY > z - maxY then (maxY, z - maxY) else (x - maxY, maxY)
+            | y * (z - y) < (maxY * (z - maxY)) = findGoldbachPairWithMaxProduct z (y + 1) maxY
+            | isPrime y && isPrime (z - y) = findGoldbachPairWithMaxProduct z (y + 1) y
+            | otherwise = findGoldbachPairWithMaxProduct z (y + 1) maxY
 
 -- ***** --
 -- Bonus
@@ -162,9 +162,6 @@ isCircularPrime :: Integer -> Bool
 -- If you choose the implement this function, replace this with the actual implementation
 isCircularPrime x = allGen isPrime' (rotateDigits', hasDone, (x, 1))
     where
-        isPrime' (x, _) = isPrime x
-        rotateDigits' (x, n) = (rotateDigits x, n + 1)
-        hasDone (x, n) = n == countDigits x
-
--- >>> isCircularPrime 103
--- True
+        isPrime' (n, _) = isPrime n
+        rotateDigits' (m, n) = (rotateDigits m, n + 1)
+        hasDone (m, n) = n == countDigits m
