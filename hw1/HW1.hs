@@ -97,6 +97,7 @@ power x y = if y == 0 then 1 else x * power x (y - 1)
 -- -- Section 3
 -- -- ********* --
 type Generator a = (a -> a, a -> Bool, a)
+
 nullGen :: Generator a -> Bool
 nullGen (_, p, x) = not (p x)
 
@@ -154,6 +155,7 @@ goldbachPair' x = findGoldbachPairWithMaxProduct x 2 2
             | y * (z - y) < (maxY * (z - maxY)) = findGoldbachPairWithMaxProduct z (y + 1) maxY
             | isPrime y && isPrime (z - y) = findGoldbachPairWithMaxProduct z (y + 1) y
             | otherwise = findGoldbachPairWithMaxProduct z (y + 1) maxY
+
 
 -- ***** --
 -- Bonus
