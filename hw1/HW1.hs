@@ -162,8 +162,24 @@ goldbachPair' x = findGoldbachPairWithMaxProduct x 2 2
 -- ***** --
 isCircularPrime :: Integer -> Bool
 -- If you choose the implement this function, replace this with the actual implementation
-isCircularPrime x = allGen isPrime' (rotateDigits', hasDone, (x, 1))
-    where
-        isPrime' (n, _) = isPrime n
-        rotateDigits' (m, n) = (rotateDigits m, n + 1)
-        hasDone (m, n) = n == countDigits m
+isCircularPrime x
+    | x < 2 = False
+    | containsZero x = False
+    | otherwise = checkRotationsForPrimality x (countDigits x - 1)
+
+-- Checks if a number contains the digit '0'
+containsZero :: Integer -> Bool
+containsZero x
+    | x < 0 = containsZero (-x)
+    | x == 0 = True
+    | otherwise = checkZero x
+  where
+    checkZero n
+        | n == 0 = False
+        | n `mod` 10 == 0 = True
+        | otherwise = checkZero (n `div` 10)
+
+-- Checks if all rotations of a number are prime
+checkRotationsForPrimality :: Integer -> Integer -> Bool
+checkRotationsForPrimality x 0 = isPrime x
+checkRotationsForPrimality x count = isPrime x && checkRotationsForPrimality (rotateDigits x) (count - 1)
