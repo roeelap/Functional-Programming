@@ -1,7 +1,7 @@
--- {-# LANGUAGE LambdaCase #-}
--- {-# OPTIONS_GHC -Wall -Werror #-}
+{-# LANGUAGE LambdaCase #-}
+{-# OPTIONS_GHC -Wall -Werror #-}
 -- Refines the above, allowing for unused imports.
--- {-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module HW2 where
 
@@ -86,7 +86,6 @@ takeWhile p = \case
   [] -> []
   x : xs -> if p x then x : takeWhile p xs else []
 
-
 drop :: Int -> [a] -> [a]
 drop n = \case
   [] -> []
@@ -120,9 +119,6 @@ fromGenerator (f, p, x) = if p x then f x : fromGenerator (f, p, f x) else []
 replicate :: Int -> a -> [a]
 replicate n x = take n (fromGenerator (const x, const True, x))
 
--- >>> zipWith (+) [1 , 2 , 3] [4 , 5 , 6]
--- [5,7,9]
-
 inits :: [a] -> [[a]]
 inits [] = [[]]
 inits (x : xs) = [] : map (x :) (inits xs)
@@ -140,23 +136,104 @@ zipWith f (a: as) (b:bs) = f a b : zipWith f as bs
 zip :: [a] -> [b] -> [(a, b)]
 zip = zipWith (,)
 
--- zipFill :: a -> b -> [a] -> [b] -> [(a, b)]
--- data ZipFail = ErrorFirst | ErrorSecond deriving (Eq, Show)
--- zipFail :: [a] -> [b] -> Either ZipFail [(a, b)]
--- unzip :: [(a, b)] -> ([a], [b])
+zipFill :: a -> b -> [a] -> [b] -> [(a, b)]
+zipFill _ _ [] [] = []
+zipFill aDefault bDefault (a: as) [] = (a, bDefault) : zipFill aDefault bDefault as []
+zipFill aDefault bDefault [] (b : bs) = (aDefault, b) : zipFill aDefault bDefault [] bs
+zipFill aDefault bDefault (a: as) (b : bs) = (a, b) : zipFill aDefault bDefault as bs
 
--- -- Section 4: Knight travels
--- -- Position (0, 0) is the top-left corner.
--- data KnightPos = KnightPos {x :: Int, y :: Int} deriving (Show, Eq)
--- data KnightMove = TopLeft | TopRight | RightTop | RightBottom | BottomRight | BottomLeft | LeftBottom | LeftTop deriving (Enum, Bounded, Show, Eq)
--- -- Utility to get all knight moves. Don't worry about the implementation of this.
--- allKnightMoves :: [KnightMove]
--- allKnightMoves = [minBound .. maxBound]
--- data Board = Board {width :: Int, height :: Int} deriving (Show, Eq)
--- tour :: Board -> KnightPos -> Maybe [KnightMove]
--- newtype InvalidPosition = InvalidPosition KnightPos deriving (Show, Eq)
--- translate :: KnightPos -> [KnightMove] -> [KnightPos]
--- translate' :: [KnightPos] -> Either InvalidPosition [KnightMove]
+data ZipFail = ErrorFirst | ErrorSecond deriving (Eq, Show)
+zipFail :: [a] -> [b] -> Either ZipFail [(a, b)]
+zipFail [] [] = Right []
+zipFail [] _ = Left ErrorFirst
+zipFail _ [] = Left ErrorSecond
+zipFail (a: as) (b: bs) = case zipFail as bs of
+                           Left e -> Left e
+                           Right xs -> Right ((a, b) : xs)
 
--- -- Bonus (10 points)
--- mark :: Board -> [KnightPos] -> Either InvalidPosition [[Int]]
+unzip :: [(a, b)] -> ([a], [b])
+unzip = foldr (\(a, b) (as, bs) -> (a : as, b : bs)) ([], [])
+
+-- Section 4: Knight travels
+-- Position (0, 0) is the top-left corner.
+data KnightPos = KnightPos {x :: Int, y :: Int} deriving (Show, Eq)
+data KnightMove = TopLeft | TopRight | RightTop | RightBottom | BottomRight | BottomLeft | LeftBottom | LeftTop deriving (Enum, Bounded, Show, Eq)
+-- Utility to get all knight moves. Don't worry about the implementation of this.
+allKnightMoves :: [KnightMove]
+allKnightMoves = [minBound .. maxBound]
+data Board = Board {width :: Int, height :: Int} deriving (Show, Eq)
+
+tour :: Board -> KnightPos -> Maybe [KnightMove]
+tour board start = tour' [start] [] start
+  where
+    tour' squaresVisited moves current
+      | length squaresVisited == width board * height board = Just moves  -- all squares visited
+      | otherwise = tryMoves moves squaresVisited current allKnightMoves  -- try all possible moves
+
+    tryMoves _ _ _ [] = Nothing  -- no moves left to try
+    tryMoves moves squaresVisited current (m:ms) =
+      let nextPos = moveKnight current m
+      in if isValidPosition board nextPos && notElem nextPos squaresVisited
+         then case tour' (nextPos : squaresVisited) (moves ++ [m]) nextPos of
+              Nothing -> tryMoves moves squaresVisited current ms  -- current path failed, try next move
+              solution -> solution
+         else tryMoves moves squaresVisited current ms  -- move was not valid, try next one
+
+
+newtype InvalidPosition = InvalidPosition KnightPos deriving (Show, Eq)
+
+translate :: KnightPos -> [KnightMove] -> [KnightPos]
+translate _ [] = []
+translate start (move:moves) = moveKnight start move : translate (moveKnight start move) moves
+
+translate' :: [KnightPos] -> Either InvalidPosition [KnightMove]
+translate' [] = Right []
+translate' [_] = Right []
+translate' (p1 : p2 : ps) = case find (\m -> p2 `elem` translate p1 [m]) allKnightMoves of
+                             Nothing -> Left (InvalidPosition p2)
+                             Just m -> case translate' (p2 : ps) of
+                                         Left e -> Left e
+                                         Right ms -> Right (m : ms)
+
+moveKnight :: KnightPos -> KnightMove -> KnightPos
+moveKnight (KnightPos x y) move = case move of
+    TopLeft -> KnightPos (x - 2) (y - 1)
+    TopRight -> KnightPos (x + 2) (y - 1)
+    RightTop -> KnightPos (x + 1) (y - 2)
+    RightBottom -> KnightPos (x + 1) (y + 2)
+    BottomRight -> KnightPos (x + 2) (y + 1)
+    BottomLeft -> KnightPos (x - 2) (y + 1)
+    LeftBottom -> KnightPos (x - 1) (y + 2)
+    LeftTop -> KnightPos (x - 1) (y - 2)
+
+isValidPosition :: Board -> KnightPos -> Bool
+isValidPosition (Board w h) (KnightPos x y) = x >= 0 && x < w && y >= 0 && y < h
+
+-- Bonus (10 points)
+mark :: Board -> [KnightPos] -> Either InvalidPosition [[Int]]
+mark board positions
+  | Just invalidPos <- findFirstInvalid positions = Left $ InvalidPosition invalidPos
+  | Just duplicatedPos <- findFirstDuplicate positions = Left $ InvalidPosition duplicatedPos
+  | otherwise = Right $ createBoardMarking board positions
+  where
+    findFirstInvalid :: [KnightPos] -> Maybe KnightPos
+    findFirstInvalid [] = Nothing
+    findFirstInvalid (p:ps)
+      | not (isValidPosition board p) = Just p
+      | otherwise = findFirstInvalid ps
+
+    findFirstDuplicate :: [KnightPos] -> Maybe KnightPos
+    findFirstDuplicate [] = Nothing
+    findFirstDuplicate (p:ps)
+      | p `elem` ps = Just p
+      | otherwise = findFirstDuplicate ps
+
+    createBoardMarking (Board w h) knightPositions = 
+      [[findPositionIndex (KnightPos x y) knightPositions 0 | x <- [0..w-1]] | y <- [0..h-1]]
+
+    findPositionIndex :: KnightPos -> [KnightPos] -> Int -> Int
+    findPositionIndex _ [] _ = -1
+    findPositionIndex target (p:ps) idx
+      | target == p = idx
+      | otherwise = findPositionIndex target ps (idx + 1)
+
