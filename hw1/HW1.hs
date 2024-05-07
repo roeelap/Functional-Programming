@@ -129,18 +129,27 @@ countGen p (f, q, x)
 -- -- ********* --
 -- -- Section 4
 -- -- ********* --
-divides :: Integer -> Integer -> Bool
-y `divides` x  = x `mod` y == 0
-
 isPrime :: Integer -> Bool
-isPrime x
-    | x < 2 = False
-    | otherwise = noneGen (`divides` x) ((+1), (<= x `div` 2), 2)
+isPrime n
+    | n < 2 = False
+    | n == 2 = True
+    | even n = False
+    | otherwise = isPrimeHelper n 3
+
+isPrimeHelper :: Integer -> Integer -> Bool
+isPrimeHelper n divisor
+    | divisor * divisor > n = True
+    | n `mod` divisor == 0 = False
+    | otherwise = isPrimeHelper n (divisor + 2)
 
 isSemiprime :: Integer -> Bool
-isSemiprime x
-    | x < 5 = False
-    | otherwise = anyGen (\y -> (y `divides` x) && isPrime y && isPrime (x `div` y)) ((+1), (<= x `div` 2), 2)
+isSemiprime n = isSemiprimeHelper n 2
+
+isSemiprimeHelper :: Integer -> Integer -> Bool
+isSemiprimeHelper n divisor
+    | divisor * divisor > n = False
+    | n `mod` divisor == 0 && isPrime divisor && isPrime (n `div` divisor) = True
+    | otherwise = isSemiprimeHelper n (divisor + 1)
 
 goldbachPair :: Integer -> (Integer, Integer)
 goldbachPair x = findGoldbachPair x 2
