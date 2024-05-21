@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 -- Implement the following functions.
--- When you're done, ghc -Wall -Werror HW2.hs should successfully compile.
+-- When you're done, ghc -Wall -Werror HW3.hs should successfully compile.
 -- Tells HLS to show warnings, and the file won't be compiled if there are any warnings, e.g.,
 -- eval (-- >>>) won't work.
 {-# OPTIONS_GHC -Wall -Werror #-}
@@ -20,10 +20,6 @@ import Control.Arrow (ArrowChoice(right))
 
 -- Section 1: Tree Serialization
 data Tree a = Empty | Tree (Tree a) a (Tree a) deriving (Show, Eq)
-
--- >>> deserialize [1, 2, 3, 1, 7, 0, 8, 0]
--- Tree (Tree (Tree Empty 7 Empty) 3 Empty) 1 (Tree Empty 7 Empty)
-
 
 serialize :: Tree Int -> [Int]
 serialize Empty = []
@@ -111,13 +107,13 @@ rationals = interleave positiveFractions negativeFractions where
     negativeFractions = imap negate positiveFractions
     
     generateFractions :: Rational -> InfiniteList Rational
-    generateFractions r = r :> interleave (generateFractions (left r)) (generateFractions (right r))
+    generateFractions r = r :> interleave (generateFractions (updateDenominator r)) (generateFractions (updateNominator r))
     
-    left :: Rational -> Rational
-    left r = numerator r % (numerator r + denominator r)
+    updateDenominator :: Rational -> Rational
+    updateDenominator r = numerator r % (numerator r + denominator r)
     
-    right :: Rational -> Rational
-    right r = (numerator r + denominator r) % denominator r
+    updateNominator :: Rational -> Rational
+    updateNominator r = (numerator r + denominator r) % denominator r
     
     interleave :: InfiniteList a -> InfiniteList a -> InfiniteList a
     interleave (x :> xs) ys = x :> interleave ys xs
@@ -156,7 +152,7 @@ parseInstruction line =
 runInstruction :: [Int] -> Instruction -> Either StackError [Int]
 runInstruction stack (PUSH n) = Right (n : stack)
 runInstruction [] POP = Left $ StackUnderflow "POP" Nothing
-runInstruction (x : xs) POP = Right xs
+runInstruction (_ : xs) POP = Right xs
 
 runInstruction [] SWAP = Left $ StackUnderflow "SWAP" Nothing
 runInstruction [x] SWAP = Left $ StackUnderflow "SWAP" (Just x)
@@ -179,7 +175,7 @@ runInstruction (x : y : xs) MUL = Right (x * y : xs)
 
 runInstruction [] DIV = Left $ StackUnderflow "DIV" Nothing
 runInstruction [_] DIV = Left $ StackUnderflow "DIV" Nothing
-runInstruction (_ : 0 : xs) DIV = Left DivisionByZero
+runInstruction (_ : 0 : _) DIV = Left DivisionByZero
 runInstruction (x : y : xs) DIV = Right (x `div` y : xs)
 
 runInstruction stack NOTHING = Right stack
@@ -188,8 +184,8 @@ parseAndRun :: String -> Either RunError [Int]
 parseAndRun input = runInstructions [] (lines input) where
     runInstructions :: [Int] -> [String] -> Either RunError [Int]
     runInstructions stack [] = Right stack
-    runInstructions stack (line : lines) = case parseInstruction line of
-        Nothing -> Left $ ParseError line
+    runInstructions stack (l : ls) = case parseInstruction l of
+        Nothing -> Left $ ParseError l
         Just instruction -> case runInstruction stack instruction of
             Left err -> Left $ InstructionError err
-            Right stack' -> runInstructions stack' lines
+            Right stack' -> runInstructions stack' ls
