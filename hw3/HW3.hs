@@ -151,6 +151,7 @@ parseInstruction line =
 
 runInstruction :: [Int] -> Instruction -> Either StackError [Int]
 runInstruction stack (PUSH n) = Right (n : stack)
+
 runInstruction [] POP = Left $ StackUnderflow "POP" Nothing
 runInstruction (_ : xs) POP = Right xs
 
@@ -166,15 +167,15 @@ runInstruction [x] ADD = Left $ StackUnderflow "ADD" (Just x)
 runInstruction (x : y : xs) ADD = Right (x + y : xs)
 
 runInstruction [] SUB = Left $ StackUnderflow "SUB" Nothing
-runInstruction [_] SUB = Left $ StackUnderflow "SUB" Nothing
+runInstruction [x] SUB = Left $ StackUnderflow "SUB" (Just x)
 runInstruction (x : y : xs) SUB = Right (x - y : xs)
 
 runInstruction [] MUL = Left $ StackUnderflow "MUL" Nothing
-runInstruction [_] MUL = Left $ StackUnderflow "MUL" Nothing
+runInstruction [x] MUL = Left $ StackUnderflow "MUL" (Just x)
 runInstruction (x : y : xs) MUL = Right (x * y : xs)
 
 runInstruction [] DIV = Left $ StackUnderflow "DIV" Nothing
-runInstruction [_] DIV = Left $ StackUnderflow "DIV" Nothing
+runInstruction [x] DIV = Left $ StackUnderflow "DIV" (Just x)
 runInstruction (_ : 0 : _) DIV = Left DivisionByZero
 runInstruction (x : y : xs) DIV = Right (x `div` y : xs)
 
