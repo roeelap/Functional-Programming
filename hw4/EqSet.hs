@@ -1,6 +1,6 @@
--- {-# LANGUAGE LambdaCase #-}
--- {-# OPTIONS_GHC -Wall -Werror #-}
--- {-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# LANGUAGE LambdaCase #-}
+{-# OPTIONS_GHC -Wall -Werror #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module EqSet (
   EqSet,

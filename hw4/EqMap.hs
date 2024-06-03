@@ -1,6 +1,6 @@
--- {-# LANGUAGE LambdaCase #-}
--- {-# OPTIONS_GHC -Wall -Werror #-}
--- {-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# LANGUAGE LambdaCase #-}
+{-# OPTIONS_GHC -Wall -Werror #-}
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module EqMap (
   EqMap,
@@ -32,13 +32,13 @@ insert :: Eq k => k -> v -> EqMap k v -> EqMap k v
 insert k v (EqMap kvs) = EqMap (EqSet.insert (Arg k v) (removeKey k kvs)) 
 
 removeKey :: Eq k => k -> EqSet (Arg k v) -> EqSet (Arg k v)
-removeKey k = EqSet.filter (\(Arg k' _) -> k == k)
+removeKey k = EqSet.filter (\(Arg k' _) -> k /= k')
 
 remove :: Eq k => k -> EqMap k v -> EqMap k v
 remove k (EqMap kvs) = EqMap (removeKey k kvs)
 
 lookup :: Eq k => k -> EqMap k v -> Maybe v
-lookup k (EqMap kvs) = case find (\(Arg k' v) -> k == k') (EqSet.elems kvs) of
+lookup k (EqMap kvs) = case find (\(Arg k' _) -> k == k') (EqSet.elems kvs) of
   Just (Arg _ v) -> Just v
   Nothing -> Nothing
 
@@ -56,10 +56,10 @@ instance (Show k, Show v) => Show (EqMap k v) where
       showAssocs (Arg k v : rest) = show k ++ "->" ++ show v ++ "," ++ showAssocs rest
 
 instance Eq k => Semigroup (EqMap k v) where
-  (EqMap es1) <> (EqMap es2) = EqMap (combine es2 (EqSet.elems es1))
+  (EqMap es1) <> (EqMap es2) = EqMap (combine es1 (EqSet.elems es2))
     where
       combine es [] = es
-      combine es (arg@(Arg k v) : rest) = combine (EqSet.insert arg (removeKey k es)) rest
+      combine es (arg@(Arg k _) : rest) = combine (EqSet.insert arg (removeKey k es)) rest
   
 instance Eq k => Monoid (EqMap k v) where
   mempty = empty
@@ -83,9 +83,9 @@ instance (Eq k, Semigroup v) => Monoid (CombiningMap k v) where
   mappend = (<>)
 
 
-map1 = EqMap.insert 1 "a" $ EqMap.insert 2 "b" empty
-map2 = EqMap.insert 2 "c" $ EqMap.insert 3 "d" empty
+-- map1 = EqMap.insert 1 "a" $ EqMap.insert 2 "b" empty
+-- map2 = EqMap.insert 2 "c" $ EqMap.insert 3 "d" empty
 
--- >>> getCombiningMap $ (CombiningMap map1) <> (CombiningMap map2)
--- {3->"d",1->"a",2->"b"}
+-- >>> getCombiningMap $ CombiningMap map1 <> CombiningMap map2
+
 

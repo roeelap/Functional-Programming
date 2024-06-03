@@ -57,7 +57,7 @@ instance (Serializable a, Serializable b) => Serializable (a, b) where
                        (len2, xs2) = splitAt 1 rest2
                        ys = take (deserialize len2) xs2
                    in (deserialize xs1, deserialize ys)
-  
+
 instance (Serializable a, Serializable b) => Serializable (Either a b) where
   serialize (Left x) = 0 : serialize x
   serialize (Right y) = 1 : serialize y
@@ -68,10 +68,11 @@ instance (Serializable a, Serializable b) => Serializable (Either a b) where
 instance Serializable a => Serializable [a] where
 
 
-
 instance (Serializable a, Eq a) => Serializable (EqSet a) where
-  
-
+  serialize (EqSet xs) = serialize (length xs) ++ concatMap serialize xs
+  deserialize xs = let (len, rest) = splitAt 1 xs
+                       (ys, _) = splitAt (deserialize len) rest
+                   in EqSet (map deserialize ys)
 
 instance (Serializable k, Eq k, Serializable v) => Serializable (EqMap k v)
 
