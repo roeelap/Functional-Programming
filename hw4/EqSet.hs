@@ -1,6 +1,6 @@
-{-# LANGUAGE LambdaCase #-}
-{-# OPTIONS_GHC -Wall -Werror #-}
-{-# OPTIONS_GHC -Wno-unused-imports #-}
+-- {-# LANGUAGE LambdaCase #-}
+-- {-# OPTIONS_GHC -Wall -Werror #-}
+-- {-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module EqSet (
   EqSet,
@@ -9,6 +9,7 @@ module EqSet (
   member,
   remove,
   elems,
+  EqSet.filter
 ) where
 
 import Data.Either
@@ -21,14 +22,39 @@ empty :: EqSet a
 empty = EqSet []
 
 member :: Eq a => a -> EqSet a -> Bool
-member x empty = False
-member x (EqSet (y: ys)) = x == y
+member x (EqSet xs) = x `elem` xs
 
 insert :: Eq a => a -> EqSet a -> EqSet a
+insert x (EqSet xs)
+  | x `elem` xs = EqSet xs
+  | otherwise = EqSet (x : xs)
+
 remove :: Eq a => a -> EqSet a -> EqSet a
+remove x = EqSet.filter (/= x)
+
 elems :: EqSet a -> [a]
+elems = getSet
+
+filter :: (a -> Bool) -> EqSet a -> EqSet a
+filter p (EqSet xs) = EqSet (Data.List.filter p xs)
 
 instance Eq a => Eq (EqSet a)
+  where
+    (EqSet xs) == (EqSet ys) = null (xs \\ ys) && null (ys \\ xs)
+
 instance Show a => Show (EqSet a)
+  where
+    show (EqSet xs) = "{" ++ showElements xs ++ "}"
+      where
+        showElements [] = ""
+        showElements [y] = show y
+        showElements (y:ys) = show y ++ "," ++ showElements ys
+
 instance Eq a => Semigroup (EqSet a)
+  where
+    (EqSet xs) <> (EqSet ys) = EqSet (xs `union` ys)
+
 instance Eq a => Monoid (EqSet a)
+  where
+    mempty = empty
+    mappend = (<>)
