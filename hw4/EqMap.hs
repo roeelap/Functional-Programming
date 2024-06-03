@@ -93,9 +93,3 @@ instance (Eq k, Semigroup v) => Semigroup (CombiningMap k v) where
 instance (Eq k, Semigroup v) => Monoid (CombiningMap k v) where
   mempty = CombiningMap empty
   mappend = (<>)
-
-
--- map1 = EqMap.insert 1 "a" $ EqMap.insert 2 "b" empty
--- map2 = EqMap.insert 2 "c" $ EqMap.insert 3 "d" empty
-
-

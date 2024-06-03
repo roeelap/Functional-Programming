@@ -1,11 +1,11 @@
--- {-# LANGUAGE LambdaCase #-}
--- -- Implement the following functions.
--- -- When you're done, ghc -Wall -Werror HW4.hs EqSet.hs EqMap.hs should successfully compile.
--- -- Tells HLS to show warnings, and the file won't be compiled if there are any warnings, e.g.,
--- -- eval (-- >>>) won't work.
--- {-# OPTIONS_GHC -Wall -Werror #-}
--- -- Refines the above, allowing for unused imports.
--- {-# OPTIONS_GHC -Wno-unused-imports #-}
+{-# LANGUAGE LambdaCase #-}
+-- Implement the following functions.
+-- When you're done, ghc -Wall -Werror HW4.hs EqSet.hs EqMap.hs should successfully compile.
+-- Tells HLS to show warnings, and the file won't be compiled if there are any warnings, e.g.,
+-- eval (-- >>>) won't work.
+{-# OPTIONS_GHC -Wall -Werror #-}
+-- Refines the above, allowing for unused imports.
+{-# OPTIONS_GHC -Wno-unused-imports #-}
 
 module HW4 where
 
@@ -36,17 +36,32 @@ instance Serializable Bool where
   deserialize [0] = False
   deserialize _ = error "Invalid input"
 
+-- >>> serialize True
+-- [1]
+-- >>> deserialize [1] :: Bool
+-- True
+
 instance Serializable Char where
   serialize x = [ord x]
   deserialize [x] = chr x
   deserialize _ = error "Invalid input"
 
+-- >>> serialize (Just 's' :: Maybe Char)
+-- [1,115]
+-- >>> deserialize [1,115] :: Maybe Char
+-- Just 's'
+
 instance Serializable a => Serializable (Maybe a) where
-  serialize Nothing = [0, 0]
+  serialize Nothing = [0]
   serialize (Just x) = 1 : serialize x
   deserialize (0:_) = Nothing
-  deserialize (1:xs) = deserialize xs
+  deserialize (1:xs) = Just (deserialize xs)
   deserialize _ = error "Invalid input"
+
+-- >>> serialize ('a' :: Char, 5 :: Int)
+-- [1,97,1,5]
+-- >>> deserialize [1,97,1,5] :: (Char, Int)
+-- ('a',5)
 
 instance (Serializable a, Serializable b) => Serializable (a, b) where
   serialize (x, y) = let sx = serialize x
@@ -58,6 +73,11 @@ instance (Serializable a, Serializable b) => Serializable (a, b) where
                        ys = take (deserialize len2) xs2
                    in (deserialize xs1, deserialize ys)
 
+-- >>> serialize (Left 'a' :: Either Char Int, Right 5 :: Either Char Int)
+-- [2,0,97,2,1,5]
+-- >>> deserialize [2,0,97,2,1,5] :: (Either Char Int, Either Char Int)
+-- (Left 'a',Right 5)
+
 instance (Serializable a, Serializable b) => Serializable (Either a b) where
   serialize (Left x) = 0 : serialize x
   serialize (Right y) = 1 : serialize y
@@ -67,97 +87,176 @@ instance (Serializable a, Serializable b) => Serializable (Either a b) where
 
 instance Serializable a => Serializable [a] where
   serialize xs = serialize (length xs) ++ concatMap serialize xs
-  deserialize xs = let (len, rest) = splitAt 1 xs
-                   in take (deserialize len) (deserialize rest)
+  deserialize xs =
+    let (lenSerialized, rest) = splitAt 1 xs
+        len = deserialize lenSerialized :: Int
+        takeElements 0 [] = []
+        takeElements n lst = 
+          let (element, remaining) = splitAt (length (serialize (undefined :: a))) lst
+          in deserialize element : takeElements (n - 1) remaining
+    in takeElements len rest
+
+-- >>> serialize ['a', 'b', 'c']
+-- [3,97,98,99]
+-- >>> deserialize [3,97,98,99] :: [Char]
+-- "abc"
 
 instance (Serializable a, Eq a) => Serializable (EqSet a) where
-  serialize s = serialize elements where elements = EqSet.elems s
-  deserialize xs = EqSet.fromList (deserialize s) where (len, s) = splitAt 1 xs
+  serialize s = serialize (length elements) ++ concatMap serialize elements
+    where elements = toList s
+
+  deserialize xs =
+    let (lenSerialized, rest) = splitAt 1 xs
+        len = deserialize lenSerialized :: Int
+        takeElements 0 [] = []
+        takeElements n lst = 
+          let (element, remaining) = splitAt (length (serialize (undefined :: a))) lst
+          in deserialize element : takeElements (n - 1) remaining
+    in fromList (takeElements len rest)
+
+toList :: EqSet a -> [a]
+toList = EqSet.elems
+
+fromList :: Eq a => [a] -> EqSet a
+fromList = foldr EqSet.insert EqSet.empty
+
+-- >>> serialize (EqSet.fromList [1, 2, 3] :: EqSet Int)
+-- [3,1,2,3]
+-- >>> deserialize [3,1,2,3] :: EqSet Int
+-- {1,2,3}
 
 instance (Serializable k, Eq k, Serializable v) => Serializable (EqMap k v) where
-  serialize m = serialize keys ++ serialize values where (keys, values) = EqMap.toLists m
-  deserialize xs = let (keys, values) = splitAt (length xs `div` 2) xs in
-                    EqMap.toMap (deserialize keys) (deserialize values)
+  serialize m = serialize (length keys) ++ concatMap serialize keys ++ concatMap serialize values
+    where
+      (keys, values) = unzip (mapToList m)
 
+  deserialize xs =
+    let (lenSerialized, rest) = splitAt 1 xs
+        len = deserialize lenSerialized :: Int
+        (keysSerialized, valuesSerialized) = splitAt (len * length (serialize (undefined :: k))) rest
+        takeElements 0 _ = []
+        takeElements n lst = 
+          let (element, remaining) = splitAt (length (serialize (undefined :: k))) lst
+          in deserialize element : takeElements (n - 1) remaining
+        keys = takeElements len keysSerialized
+        values = takeElements len valuesSerialized
+    in EqMap.toMap keys values
 
-q = 1
--- >>> deserialize (serialize q)
--- Could not deduce (Serializable Integer)
---   arising from a use of `serialize'
--- from the context: Serializable a_a76OR[sk:1]
---   bound by the inferred type of
---              it_a76NI :: Serializable a_a76OR[sk:1] => a_a76OR[sk:1]
---   at C:\Users\rlapu\Desktop\Univeristy\Haskell\hw4\HW4.hs:83:2-26
--- In the first argument of `deserialize', namely `(serialize q)'
--- In the expression: deserialize (serialize q)
--- In an equation for `it_a76NI': it_a76NI = deserialize (serialize q)
+mapToList :: EqMap k v -> [(k, v)]
+mapToList = EqMap.assocs
 
+-- >>> serialize (EqMap.toMap ['a', 'b', 'c'] [1, 2, 3] :: EqMap Char Int)
+-- [3,97,98,99,1,2,3]
+-- >>> deserialize [3,97,98,99,3,1,2,3] :: EqMap Char Int
+-- {'a'->3,'b'->1,'c'->2}
+-- >>> EqMap.toMap ['a', 'b', 'c'] [1, 2, 3]
+-- {'a'->1,'b'->2,'c'->3}
+-- >>> serialize ({'a'->1,'b'->2,'c'->3} :: EqMap Char Int)
+-- parse error on input `{'
 
--- -- Section 3: Metric
--- infinity :: Double
--- infinity = 1 / 0
+-- Section 3: Metric
+infinity :: Double
+infinity = 1 / 0
 
--- class Eq a => Metric a where
---   distance :: a -> a -> Double
+class Eq a => Metric a where
+  distance :: a -> a -> Double
 
--- instance Metric Double where
---   distance = (-) `on` abs
+instance Metric Double where
+  distance :: Double -> Double -> Double
+  distance x y = abs (x - y)
 
--- instance Metric Int where
---   distance = fromIntegral . abs . (-)
+instance Metric Int where
+  distance :: Int -> Int -> Double
+  distance x y = fromIntegral (abs (x - y))
 
--- instance Metric Char where
---   distance = fromIntegral . abs . (-) `on` ord
+instance Metric Char where
+  distance :: Char -> Char -> Double
+  distance x y = fromIntegral (abs (ord x - ord y))
 
--- -- Euclidean distance
--- instance (Metric a, Metric b) => Metric (a, b) where
---   distance (x1, y1) (x2, y2) = sqrt (distance x1 x2 ^ 2 + distance y1 y2 ^ 2)
+-- Euclidean distance
+instance (Metric a, Metric b) => Metric (a, b) where
+  distance :: (a, b) -> (a, b) -> Double
+  distance (x1, y1) (x2, y2) = sqrt (distance x1 x2 ^ (2 :: Integer) + distance y1 y2 ^ (2 :: Integer))
 
--- data ManhattanTuple a b = ManhattanTuple a b deriving Eq
--- instance (Metric a, Metric b) => Metric (ManhattanTuple a b) where
---   distance (ManhattanTuple x1 y1) (ManhattanTuple x2 y2) = distance x1 x2 + distance y1 y2
+data ManhattanTuple a b = ManhattanTuple a b deriving Eq
 
--- -- Just and Nothing have distance of infinity.
--- -- Two Justs measure the distance between the two values.
--- instance Metric a => Metric (Maybe a) where
---   distance Nothing Nothing = 0
---   distance (Just x) (Just y) = distance x y
---   distance _ _ = infinity
+instance (Metric a, Metric b) => Metric (ManhattanTuple a b) where
+  distance :: ManhattanTuple a b -> ManhattanTuple a b -> Double
+  distance (ManhattanTuple x1 y1) (ManhattanTuple x2 y2) = distance x1 x2 + distance y1 y2
 
--- -- Left and Right have a distance of infinity.
--- -- Same constructors measure the distance between the two values.
--- instance (Metric a, Metric b) => Metric (Either a b) where
---   distance (Left x) (Left y) = distance x y
---   distance (Right x) (Right y) = distance x y
---   distance _ _ = infinity
+-- Just and Nothing have distance of infinity.
+-- Two Justs measure the distance between the two values.
+instance Metric a => Metric (Maybe a) where
+  distance :: Maybe a -> Maybe a -> Double
+  distance Nothing Nothing = 0
+  distance (Just x) (Just y) = distance x y
+  distance _ _ = infinity
 
--- -- Lists of different sizes have distance of infinity.
--- -- Euclidean distance.
--- instance Metric a => Metric [a] where
---   distance xs ys
---     | length xs != length ys = infinity
---     | otherwise = sqrt (sum (zipWith (\x y -> distance x y ^ 2) xs ys))
+-- Left and Right have a distance of infinity.
+-- Same constructores measure the distance between the two values.
+instance (Metric a, Metric b) => Metric (Either a b) where
+  distance :: Either a b -> Either a b -> Double
+  distance (Left x) (Left y) = distance x y
+  distance (Right x) (Right y) = distance x y
+  distance _ _ = infinity
 
--- newtype ManhattanList a = ManhattanList [a] deriving Eq
--- instance Metric a => Metric (ManhattanList a) where
---   distance (ManhattanList xs) (ManhattanList ys) 
---     | length xs != length ys = infinity
---     | otherwise = sum (zipWith distance xs ys)
+-- Lists of different sizes have distance of infinity.
+-- Euclidean distance.
+instance Metric a => Metric [a] where
+  distance :: [a] -> [a] -> Double
+  distance xs ys
+    | length xs /= length ys = infinity
+    | otherwise = sqrt . sum $ zipWith (\x y -> distance x y ^ (2 :: Integer)) xs ys
 
--- -- Returns the element with the shortest distance to the input.
--- -- If there are no numbers whose distance is less than infinity, return Nothing.
--- closest :: Metric a => a -> [a] -> Maybe a
--- closest x [] = Nothing
--- closest x [y] = Just $ distance x y
+newtype ManhattanList a = ManhattanList [a] deriving Eq
 
--- -- Similar to the above, but uses a function move the element
--- -- to another metric space.
--- closestOn :: Metric b => (a -> b) -> a -> [a] -> Maybe a
--- -- Will not swap elements whose distance is less than d, even if their
--- -- order implies they should be swapped.
--- metricBubbleSort :: (Metric a, Ord a) => Double -> [a] -> [a]
--- -- Similar to the above, but uses a function to extract the value used for sorting.
--- metricBubbleSortOn :: (Metric b, Ord b) => (a -> b) -> Double -> [a] -> [a]
+instance Metric a => Metric (ManhattanList a) where
+  distance :: ManhattanList a -> ManhattanList a -> Double
+  distance (ManhattanList xs) (ManhattanList ys)
+    | length xs /= length ys = infinity
+    | otherwise = sum $ zipWith distance xs ys
 
--- -- Bonus (10 points).
--- clusters :: Metric a => [a] -> [[a]]
+-- Returns the element with the shortest distance to the input.
+-- If there are no numbers whose distance is less than infinity, return Nothing.
+closest :: Metric a => a -> [a] -> Maybe a
+closest = closestOn id
+
+-- Similar to the above, but uses a function move the element
+-- to another metric space.
+closestOn :: Metric b => (a -> b) -> a -> [a] -> Maybe a
+closestOn f x xs = case filter (\y -> distance (f x) (f y) < infinity) xs of
+  [] -> Nothing
+  ys -> Just $ minimumBy (comparing' (distance (f x) . f)) ys
+
+comparing' :: Ord b => (a -> b) -> a -> a -> Ordering
+comparing' f x y = compare (f x) (f y)
+
+-- Will not swap elements whose distance is less than d, even if their
+-- order implies they should be swapped.
+metricBubbleSort :: (Metric a, Ord a) => Double -> [a] -> [a]
+metricBubbleSort = metricBubbleSortOn id
+
+-- Similar to the above, but uses a function to extract the value used for sorting.
+metricBubbleSortOn :: (Metric b, Ord b) => (a -> b) -> Double -> [a] -> [a]
+metricBubbleSortOn f d xs = foldr bubble xs [1..length xs]
+  where
+    bubble _ [] = []
+    bubble _ [y] = [y]
+    bubble _ (y1:y2:ys)
+      | f y1 > f y2 && distance (f y1) (f y2) >= d = y2 : bubble 0 (y1 : ys)
+      | otherwise = y1 : bubble 0 (y2 : ys)
+
+-- Bonus (10 points).
+clusters :: Metric a => [a] -> [[a]]
+clusters xs = clusterHelper xs []
+
+-- Function to group elements with finite distances into clusters
+clusterHelper :: Metric a => [a] -> [[a]] -> [[a]]
+clusterHelper [] acc = acc
+clusterHelper (x:xs) acc =
+  let (cluster, remaining) = partition (\y -> distance x y < infinity) xs
+  in clusterHelper remaining ((x:cluster) : acc)
+
+-- Helper function to partition the list
+partition' :: (a -> Bool) -> [a] -> ([a], [a])
+partition' p xs = (filter p xs, filter (not . p) xs)
