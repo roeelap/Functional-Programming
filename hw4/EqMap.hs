@@ -10,7 +10,9 @@ module EqMap (
   member,
   remove,
   EqMap.lookup, -- To avoid name clash with Prelude.lookup
-  assocs
+  assocs,
+  toLists,
+  toMap
 ) where
 
 import Data.Either
@@ -26,7 +28,7 @@ empty :: EqMap k v
 empty = EqMap EqSet.empty
 
 member :: Eq k => k -> EqMap k v -> Bool
-member k (EqMap kvs) = any (\(Arg k' _) -> k == k') (EqSet.elems kvs)
+member k kvs = any (\(Arg k' _) -> k == k') (EqSet.elems (getMap kvs))
 
 insert :: Eq k => k -> v -> EqMap k v -> EqMap k v
 insert k v (EqMap kvs) = EqMap (EqSet.insert (Arg k v) (removeKey k kvs)) 
@@ -44,6 +46,16 @@ lookup k (EqMap kvs) = case find (\(Arg k' _) -> k == k') (EqSet.elems kvs) of
 
 assocs :: EqMap k v -> [(k, v)]
 assocs (EqMap es) = map (\(Arg k v) -> (k, v)) (EqSet.elems es)
+
+toLists :: EqMap k v -> ([k], [v])
+toLists (EqMap es) = (ks, vs)
+  where
+    (ks, vs) = foldr (\(Arg k v) (ks', vs') -> (k:ks', v:vs')) ([], []) (EqSet.elems es)
+
+toMap :: Eq k => [k] -> [v] -> EqMap k v
+toMap [] [] = EqMap.empty
+toMap (k:ks) (v:vs) = EqMap.insert k v (toMap ks vs)
+toMap _ _ = error "Lists must be of the same length"
 
 instance (Eq k, Eq v) => Eq (EqMap k v) where
   (EqMap kvs1) == (EqMap kvs2) = kvs1 == kvs2
@@ -85,7 +97,5 @@ instance (Eq k, Semigroup v) => Monoid (CombiningMap k v) where
 
 -- map1 = EqMap.insert 1 "a" $ EqMap.insert 2 "b" empty
 -- map2 = EqMap.insert 2 "c" $ EqMap.insert 3 "d" empty
-
--- >>> getCombiningMap $ CombiningMap map1 <> CombiningMap map2
 
 

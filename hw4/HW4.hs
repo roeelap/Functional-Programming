@@ -66,15 +66,32 @@ instance (Serializable a, Serializable b) => Serializable (Either a b) where
   deserialize _ = error "Invalid input"
 
 instance Serializable a => Serializable [a] where
-
+  serialize xs = serialize (length xs) ++ concatMap serialize xs
+  deserialize xs = let (len, rest) = splitAt 1 xs
+                   in take (deserialize len) (deserialize rest)
 
 instance (Serializable a, Eq a) => Serializable (EqSet a) where
-  serialize (EqSet xs) = serialize (length xs) ++ concatMap serialize xs
-  deserialize xs = let (len, rest) = splitAt 1 xs
-                       (ys, _) = splitAt (deserialize len) rest
-                   in EqSet (map deserialize ys)
+  serialize s = serialize elements where elements = EqSet.elems s
+  deserialize xs = EqSet.fromList (deserialize s) where (len, s) = splitAt 1 xs
 
-instance (Serializable k, Eq k, Serializable v) => Serializable (EqMap k v)
+instance (Serializable k, Eq k, Serializable v) => Serializable (EqMap k v) where
+  serialize m = serialize keys ++ serialize values where (keys, values) = EqMap.toLists m
+  deserialize xs = let (keys, values) = splitAt (length xs `div` 2) xs in
+                    EqMap.toMap (deserialize keys) (deserialize values)
+
+
+q = 1
+-- >>> deserialize (serialize q)
+-- Could not deduce (Serializable Integer)
+--   arising from a use of `serialize'
+-- from the context: Serializable a_a76OR[sk:1]
+--   bound by the inferred type of
+--              it_a76NI :: Serializable a_a76OR[sk:1] => a_a76OR[sk:1]
+--   at C:\Users\rlapu\Desktop\Univeristy\Haskell\hw4\HW4.hs:83:2-26
+-- In the first argument of `deserialize', namely `(serialize q)'
+-- In the expression: deserialize (serialize q)
+-- In an equation for `it_a76NI': it_a76NI = deserialize (serialize q)
+
 
 -- -- Section 3: Metric
 -- infinity :: Double

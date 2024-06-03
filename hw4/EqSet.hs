@@ -9,7 +9,8 @@ module EqSet (
   member,
   remove,
   elems,
-  EqSet.filter
+  EqSet.filter,
+  fromList
 ) where
 
 import Data.Either
@@ -37,6 +38,9 @@ elems = getSet
 
 filter :: (a -> Bool) -> EqSet a -> EqSet a
 filter p (EqSet xs) = EqSet (Data.List.filter p xs)
+
+fromList :: Eq a => [a] -> EqSet a
+fromList = foldr EqSet.insert empty
 
 instance Eq a => Eq (EqSet a)
   where
