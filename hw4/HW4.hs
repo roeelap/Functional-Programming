@@ -36,20 +36,10 @@ instance Serializable Bool where
   deserialize [0] = False
   deserialize _ = error "Invalid input"
 
--- >>> serialize True
--- [1]
--- >>> deserialize [1] :: Bool
--- True
-
 instance Serializable Char where
   serialize x = [ord x]
   deserialize [x] = chr x
   deserialize _ = error "Invalid input"
-
--- >>> serialize (Just 's' :: Maybe Char)
--- [1,115]
--- >>> deserialize [1,115] :: Maybe Char
--- Just 's'
 
 instance Serializable a => Serializable (Maybe a) where
   serialize Nothing = [0]
@@ -57,11 +47,6 @@ instance Serializable a => Serializable (Maybe a) where
   deserialize (0:_) = Nothing
   deserialize (1:xs) = Just (deserialize xs)
   deserialize _ = error "Invalid input"
-
--- >>> serialize ('a' :: Char, 5 :: Int)
--- [1,97,1,5]
--- >>> deserialize [1,97,1,5] :: (Char, Int)
--- ('a',5)
 
 instance (Serializable a, Serializable b) => Serializable (a, b) where
   serialize (x, y) = let sx = serialize x
@@ -72,11 +57,6 @@ instance (Serializable a, Serializable b) => Serializable (a, b) where
                        (len2, xs2) = splitAt 1 rest2
                        ys = take (deserialize len2) xs2
                    in (deserialize xs1, deserialize ys)
-
--- >>> serialize (Left 'a' :: Either Char Int, Right 5 :: Either Char Int)
--- [2,0,97,2,1,5]
--- >>> deserialize [2,0,97,2,1,5] :: (Either Char Int, Either Char Int)
--- (Left 'a',Right 5)
 
 instance (Serializable a, Serializable b) => Serializable (Either a b) where
   serialize (Left x) = 0 : serialize x
@@ -95,11 +75,6 @@ instance Serializable a => Serializable [a] where
           let (element, remaining) = splitAt (length (serialize (undefined :: a))) lst
           in deserialize element : takeElements (n - 1) remaining
     in takeElements len rest
-
--- >>> serialize ['a', 'b', 'c']
--- [3,97,98,99]
--- >>> deserialize [3,97,98,99] :: [Char]
--- "abc"
 
 instance (Serializable a, Eq a) => Serializable (EqSet a) where
   serialize s = serialize (length elements) ++ concatMap serialize elements
@@ -120,11 +95,6 @@ toList = EqSet.elems
 fromList :: Eq a => [a] -> EqSet a
 fromList = foldr EqSet.insert EqSet.empty
 
--- >>> serialize (EqSet.fromList [1, 2, 3] :: EqSet Int)
--- [3,1,2,3]
--- >>> deserialize [3,1,2,3] :: EqSet Int
--- {1,2,3}
-
 instance (Serializable k, Eq k, Serializable v) => Serializable (EqMap k v) where
   serialize m = serialize (length keys) ++ concatMap serialize keys ++ concatMap serialize values
     where
@@ -144,15 +114,6 @@ instance (Serializable k, Eq k, Serializable v) => Serializable (EqMap k v) wher
 
 mapToList :: EqMap k v -> [(k, v)]
 mapToList = EqMap.assocs
-
--- >>> serialize (EqMap.toMap ['a', 'b', 'c'] [1, 2, 3] :: EqMap Char Int)
--- [3,97,98,99,1,2,3]
--- >>> deserialize [3,97,98,99,3,1,2,3] :: EqMap Char Int
--- {'a'->3,'b'->1,'c'->2}
--- >>> EqMap.toMap ['a', 'b', 'c'] [1, 2, 3]
--- {'a'->1,'b'->2,'c'->3}
--- >>> serialize ({'a'->1,'b'->2,'c'->3} :: EqMap Char Int)
--- parse error on input `{'
 
 -- Section 3: Metric
 infinity :: Double
